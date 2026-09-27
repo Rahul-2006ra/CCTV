@@ -1,0 +1,234 @@
+[
+  {
+    "project": "Looking Glass",
+    "author": "hsn07pk and contributors",
+    "url": "https://github.com/hsn07pk/looking-glass",
+    "license": "No license grant found",
+    "usage": "Architecture/reference only \u2014 no source code copied.",
+    "modified": "None"
+  },
+  {
+    "project": "CCTV-Vision",
+    "author": "Lucas Morris, Glenn Griggs, Shubhanshu Pokharel",
+    "url": "https://github.com/glenngriggs/CCTV-Vision",
+    "license": "No license grant found",
+    "usage": "Architecture/reference only \u2014 no source code copied.",
+    "modified": "None"
+  },
+  {
+    "project": "SentrySearch",
+    "author": "ssrajadh and contributors",
+    "url": "https://github.com/ssrajadh/sentrysearch",
+    "license": "Apache-2.0",
+    "usage": "Architecture/reference only \u2014 no source code copied.",
+    "modified": "None"
+  },
+  {
+    "project": "Event-Driven Video Analytics",
+    "author": "Sitta Boonkaew",
+    "url": "https://github.com/sitta07/event-driven-video-analytics",
+    "license": "All rights reserved (README)",
+    "usage": "Architecture/reference only \u2014 no source code copied.",
+    "modified": "None"
+  },
+  {
+    "project": "Ultralytics YOLO / ByteTrack integration",
+    "author": "Ultralytics contributors",
+    "url": "https://github.com/ultralytics/ultralytics",
+    "license": "AGPL-3.0",
+    "usage": "Unmodified dependency; YOLOv8n detection weights and ByteTrack tracking.",
+    "modified": "None; used through public APIs"
+  },
+  {
+    "project": "CLIP ViT-B/32",
+    "author": "OpenAI",
+    "url": "https://github.com/openai/CLIP",
+    "license": "MIT",
+    "usage": "Unmodified model checkpoint via Hugging Face Transformers.",
+    "modified": "None; used through public APIs"
+  },
+  {
+    "project": "Transformers",
+    "author": "Hugging Face contributors",
+    "url": "https://github.com/huggingface/transformers",
+    "license": "Apache-2.0",
+    "usage": "Unmodified text/image model inference dependency.",
+    "modified": "None; used through public APIs"
+  },
+  {
+    "project": "PyTorch / TorchVision",
+    "author": "PyTorch contributors",
+    "url": "https://github.com/pytorch/pytorch",
+    "license": "BSD-3-Clause",
+    "usage": "Unmodified tensor inference libraries.",
+    "modified": "None; used through public APIs"
+  },
+  {
+    "project": "Qdrant client",
+    "author": "Qdrant contributors",
+    "url": "https://github.com/qdrant/qdrant-client",
+    "license": "Apache-2.0",
+    "usage": "Persistent embedded vector storage.",
+    "modified": "None; used through public APIs"
+  },
+  {
+    "project": "FastAPI",
+    "author": "Sebasti\u00e1n Ram\u00edrez and contributors",
+    "url": "https://github.com/fastapi/fastapi",
+    "license": "MIT",
+    "usage": "Backend API framework.",
+    "modified": "None; used through public APIs"
+  },
+  {
+    "project": "React",
+    "author": "Meta and contributors",
+    "url": "https://github.com/facebook/react",
+    "license": "MIT",
+    "usage": "Frontend UI runtime.",
+    "modified": "None; used through public APIs"
+  },
+  {
+    "project": "Vite",
+    "author": "Vite contributors",
+    "url": "https://github.com/vitejs/vite",
+    "license": "MIT",
+    "usage": "Frontend build and development server.",
+    "modified": "None; used through public APIs"
+  },
+  {
+    "project": "Lucide",
+    "author": "Lucide contributors",
+    "url": "https://github.com/lucide-icons/lucide",
+    "license": "ISC",
+    "usage": "UI icons.",
+    "modified": "None; used through public APIs"
+  },
+  {
+    "project": "OpenCV",
+    "author": "OpenCV contributors",
+    "url": "https://github.com/opencv/opencv",
+    "license": "Apache-2.0",
+    "usage": "Frame decoding and image processing.",
+    "modified": "None; used through public APIs"
+  },
+  {
+    "project": "FFmpeg",
+    "author": "FFmpeg contributors",
+    "url": "https://ffmpeg.org/legal.html",
+    "license": "LGPL-2.1-or-later / optional GPL components",
+    "usage": "Installed executable invoked for probing and clips; not bundled. libx264 builds include GPL components.",
+    "modified": "None; used through public APIs"
+  },
+  {
+    "project": "NASA astronaut photograph",
+    "author": "NASA",
+    "url": "https://scikit-image.org/docs/stable/api/skimage.data.html#skimage.data.astronaut",
+    "license": "Public domain (NASA)",
+    "usage": "Unmodified photograph embedded in a panning diagnostic video. Not CCTV.",
+    "modified": "None; used through public APIs"
+  },
+  {
+    "project": "scikit-image",
+    "author": "scikit-image contributors",
+    "url": "https://github.com/scikit-image/scikit-image",
+    "license": "BSD-3-Clause",
+    "usage": "Demo image access only; unmodified dependency.",
+    "modified": "None; used through public APIs"
+  },
+  {
+    "project": "NumPy",
+    "author": "NumPy contributors",
+    "url": "https://numpy.org",
+    "license": "BSD-3-Clause",
+    "usage": "Vector and image arrays.",
+    "modified": "None; unmodified dependency"
+  },
+  {
+    "project": "SciPy",
+    "author": "SciPy contributors",
+    "url": "https://scipy.org",
+    "license": "BSD-3-Clause",
+    "usage": "Tracking numerical dependency.",
+    "modified": "None; unmodified dependency"
+  },
+  {
+    "project": "Pillow",
+    "author": "Pillow contributors",
+    "url": "https://python-pillow.org",
+    "license": "MIT-CMU",
+    "usage": "Image handling.",
+    "modified": "None; unmodified dependency"
+  },
+  {
+    "project": "Pydantic",
+    "author": "Pydantic contributors",
+    "url": "https://github.com/pydantic/pydantic",
+    "license": "MIT",
+    "usage": "Request validation.",
+    "modified": "None; unmodified dependency"
+  },
+  {
+    "project": "Uvicorn",
+    "author": "Tom Christie and contributors",
+    "url": "https://github.com/encode/uvicorn",
+    "license": "BSD-3-Clause",
+    "usage": "ASGI application server.",
+    "modified": "None; unmodified dependency"
+  },
+  {
+    "project": "SQLite",
+    "author": "SQLite authors",
+    "url": "https://sqlite.org/copyright.html",
+    "license": "Public domain",
+    "usage": "Metadata database, via Python standard library.",
+    "modified": "None; unmodified dependency"
+  },
+  {
+    "project": "TypeScript",
+    "author": "Microsoft and contributors",
+    "url": "https://github.com/microsoft/TypeScript",
+    "license": "Apache-2.0",
+    "usage": "Frontend type checking.",
+    "modified": "None; unmodified dependency"
+  },
+  {
+    "project": "python-multipart",
+    "author": "Andrew Dunham and contributors",
+    "url": "https://github.com/Kludex/python-multipart",
+    "license": "Apache-2.0",
+    "usage": "Multipart video upload parsing.",
+    "modified": "None; unmodified dependency"
+  },
+  {
+    "project": "lap",
+    "author": "lap contributors",
+    "url": "https://github.com/gatagat/lap",
+    "license": "BSD-2-Clause",
+    "usage": "Assignment solver used by tracker.",
+    "modified": "None; unmodified dependency"
+  },
+  {
+    "project": "pytest",
+    "author": "pytest contributors",
+    "url": "https://github.com/pytest-dev/pytest",
+    "license": "MIT",
+    "usage": "Automated backend tests.",
+    "modified": "None; unmodified dependency"
+  },
+  {
+    "project": "HTTPX",
+    "author": "Encode contributors",
+    "url": "https://github.com/encode/httpx",
+    "license": "BSD-3-Clause",
+    "usage": "API test client and Qdrant dependency.",
+    "modified": "None; unmodified dependency"
+  },
+  {
+    "project": "Playwright",
+    "author": "Microsoft and contributors",
+    "url": "https://github.com/microsoft/playwright",
+    "license": "Apache-2.0",
+    "usage": "Automated browser verification.",
+    "modified": "None; unmodified dependency"
+  }
+]
