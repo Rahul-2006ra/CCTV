@@ -1,11 +1,11 @@
 import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import JSONResponse, FileResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from backend.config import DATA
+from backend.config import DATA, ROOT
 from backend.storage.db import init_db
 from backend.embeddings.clip_engine import ClipEngine
 from backend.detection.detector import Detector
@@ -63,6 +63,20 @@ app.mount(
     "/media/thumbnails", StaticFiles(directory=DATA / "thumbnails"), name="thumbnails"
 )
 app.mount("/media/clips", StaticFiles(directory=DATA / "clips"), name="clips")
+
+# Serve built frontend in production (Single universal URL / port)
+dist_dir = ROOT / "frontend" / "dist"
+if dist_dir.is_dir():
+    app.mount("/assets", StaticFiles(directory=dist_dir / "assets"), name="assets")
+
+    @app.get("/{full_path:path}")
+    async def serve_spa(request: Request, full_path: str):
+        if full_path.startswith("api") or full_path.startswith("media"):
+            raise HTTPException(status_code=404, detail="Not Found")
+        target_file = dist_dir / full_path
+        if target_file.is_file():
+            return FileResponse(target_file)
+        return FileResponse(dist_dir / "index.html")
 
 
 @app.exception_handler(Exception)

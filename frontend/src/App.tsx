@@ -158,6 +158,7 @@ export default function App() {
               <Investigation
                 key={searchKey}
                 cameras={cameras}
+                videos={videos}
                 initial={initial}
                 onInitialConsumed={() => setInitial(null)}
               />

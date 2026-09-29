@@ -35,6 +35,15 @@ export default function Footage({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [actionBusy, setActionBusy] = useState<{ [id: string]: "deleting" | "indexing" }>({});
+  const [cardErrors, setCardErrors] = useState<{ [id: string]: string }>({});
+  const [uploadProgress, setUploadProgress] = useState<{
+    fileName: string;
+    percent: number;
+    loadedMB: string;
+    totalMB: string;
+    speedMBs: string;
+  } | null>(null);
 
   // Toolbar state
   const [searchQuery, setSearchQuery] = useState("");
@@ -52,6 +61,14 @@ export default function Footage({
     if (!file) return;
     setBusy(true);
     setError("");
+    setUploadProgress({
+      fileName: file.name,
+      percent: 0,
+      loadedMB: "0.0",
+      totalMB: (file.size / (1024 * 1024)).toFixed(1),
+      speedMBs: "0.0",
+    });
+
     try {
       let cid = camera || cameras[0]?.id;
       if (!cid || cid === "auto") {
@@ -74,12 +91,60 @@ export default function Footage({
       if (cid && cid !== "auto") {
         data.append("camera_id", cid);
       }
-      await api("/videos", { method: "POST", body: data });
+
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        const startTime = Date.now();
+
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            const percent = Math.min(99, Math.round((event.loaded / event.total) * 100));
+            const now = Date.now();
+            const elapsed = Math.max(0.1, (now - startTime) / 1000);
+            const speed = (event.loaded / (1024 * 1024 * elapsed)).toFixed(1);
+            setUploadProgress({
+              fileName: file.name,
+              percent,
+              loadedMB: (event.loaded / (1024 * 1024)).toFixed(1),
+              totalMB: (event.total / (1024 * 1024)).toFixed(1),
+              speedMBs: speed,
+            });
+          }
+        };
+
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            setUploadProgress({
+              fileName: file.name,
+              percent: 100,
+              loadedMB: (file.size / (1024 * 1024)).toFixed(1),
+              totalMB: (file.size / (1024 * 1024)).toFixed(1),
+              speedMBs: "Complete",
+            });
+            resolve();
+          } else {
+            let errorMsg = `Upload failed (HTTP ${xhr.status})`;
+            try {
+              const res = JSON.parse(xhr.responseText);
+              errorMsg = res.detail || errorMsg;
+            } catch {}
+            reject(new Error(errorMsg));
+          }
+        };
+
+        xhr.onerror = () => reject(new Error("Network error during video upload"));
+        xhr.ontimeout = () => reject(new Error("Video upload timed out"));
+
+        xhr.open("POST", "/api/videos");
+        xhr.send(data);
+      });
+
       refresh();
     } catch (e) {
       setError((e as Error).message);
     } finally {
       setBusy(false);
+      setUploadProgress(null);
       if (input.current) input.current.value = "";
     }
   }
@@ -87,16 +152,27 @@ export default function Footage({
   async function action(id: string, remove = false) {
     try {
       setError("");
+      setCardErrors((prev) => ({ ...prev, [id]: "" }));
+      setActionBusy((prev) => ({ ...prev, [id]: remove ? "deleting" : "indexing" }));
+
       if (remove) {
         await api(`/videos/${id}`, { method: "DELETE" });
         if (activeModalVideo?.id === id) setActiveModalVideo(null);
+        setDeleting(null);
       } else {
         await post(`/videos/${id}/process`, {});
       }
-      setDeleting(null);
       refresh();
     } catch (e) {
-      setError((e as Error).message);
+      const msg = (e as Error).message;
+      setError(msg);
+      setCardErrors((prev) => ({ ...prev, [id]: msg }));
+    } finally {
+      setActionBusy((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
     }
   }
 
@@ -281,11 +357,14 @@ export default function Footage({
             </button>
             <button
               className="icon-button"
-              title="Re-index footage"
-              disabled={!["READY", "FAILED", "UPLOADED"].includes(v.status)}
+              title={actionBusy[v.id] === "indexing" ? "Re-indexing..." : "Re-index footage"}
+              disabled={actionBusy[v.id] === "indexing"}
               onClick={() => void action(v.id)}
             >
-              <RefreshCw size={14} />
+              <RefreshCw
+                size={14}
+                className={actionBusy[v.id] === "indexing" || v.status === "PROCESSING" ? "spin" : ""}
+              />
             </button>
           </div>
 
@@ -294,7 +373,7 @@ export default function Footage({
               className="icon-button"
               title="Delete video"
               style={{ color: "#e07a68" }}
-              disabled={!["READY", "FAILED", "UPLOADED"].includes(v.status)}
+              disabled={actionBusy[v.id] === "deleting"}
               onClick={() => setDeleting(v.id)}
             >
               <Trash2 size={14} />
@@ -304,9 +383,41 @@ export default function Footage({
 
         {deleting === v.id && (
           <div className="delete-confirm" style={{ margin: "10px 16px" }}>
-            <p>Delete this video, clips, and vectors?</p>
-            <button onClick={() => void action(v.id, true)}>Delete</button>
-            <button onClick={() => setDeleting(null)}>Cancel</button>
+            <p>
+              {v.status === "PROCESSING"
+                ? "Cancel active processing and delete this video, clips, and vectors?"
+                : "Delete this video, clips, and vectors?"}
+            </p>
+            <button
+              style={{
+                background: "#e07a68",
+                color: "#fff",
+                border: "none",
+                borderRadius: "3px",
+                padding: "5px 12px",
+                cursor: "pointer",
+                fontWeight: 600,
+              }}
+              disabled={actionBusy[v.id] === "deleting"}
+              onClick={() => void action(v.id, true)}
+            >
+              {actionBusy[v.id] === "deleting" ? "Deleting…" : "Delete"}
+            </button>
+            <button
+              disabled={actionBusy[v.id] === "deleting"}
+              onClick={() => setDeleting(null)}
+              style={{ padding: "5px 12px", cursor: "pointer" }}
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+        {cardErrors[v.id] && (
+          <div
+            className="error"
+            style={{ margin: "8px 16px 12px", fontSize: "11px", padding: "6px 10px" }}
+          >
+            {cardErrors[v.id]}
           </div>
         )}
       </article>
@@ -384,6 +495,75 @@ export default function Footage({
           onChange={(e) => void upload(e.target.files?.[0])}
         />
       </div>
+
+      {uploadProgress && (
+        <div
+          style={{
+            marginBottom: "16px",
+            padding: "16px 20px",
+            background: "#182226",
+            border: "1px solid var(--accent)",
+            borderRadius: "8px",
+            boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: "10px",
+              flexWrap: "wrap",
+              gap: "8px",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <Upload size={18} color="var(--accent)" />
+              <span style={{ fontWeight: 600, color: "#fff", fontSize: "14px" }}>
+                Streaming Large Video:{" "}
+                <span className="mono" style={{ color: "#d0d7de" }}>{uploadProgress.fileName}</span>
+              </span>
+              <span
+                style={{
+                  background: "rgba(82, 196, 26, 0.2)",
+                  color: "var(--accent)",
+                  padding: "2px 8px",
+                  borderRadius: "12px",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                }}
+              >
+                {uploadProgress.percent}%
+              </span>
+            </div>
+            <span className="mono" style={{ fontSize: "12px", color: "#8c98a0" }}>
+              {uploadProgress.loadedMB} / {uploadProgress.totalMB} MB ({uploadProgress.speedMBs} MB/s)
+            </span>
+          </div>
+          <div
+            style={{
+              width: "100%",
+              height: "10px",
+              background: "#243238",
+              borderRadius: "5px",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                width: `${uploadProgress.percent}%`,
+                height: "100%",
+                background: "linear-gradient(90deg, #389e0d, var(--accent))",
+                transition: "width 0.2s ease",
+              }}
+            />
+          </div>
+          <div style={{ marginTop: "8px", fontSize: "12px", color: "#8c98a0", display: "flex", justifyContent: "space-between" }}>
+            <span>Reading and streaming large video file directly to disk storage...</span>
+            <span>YOLOv8 & CLIP indexing will start automatically</span>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="error" role="alert">

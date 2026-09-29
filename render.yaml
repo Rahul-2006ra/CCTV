@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: cctv-intelligence
+    env: docker
+    dockerfilePath: Dockerfile
+    plan: standard
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: CCTV_MAX_SAMPLE_FRAMES
+        value: 180
+    healthCheckPath: /api/system/health

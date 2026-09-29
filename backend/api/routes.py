@@ -1,7 +1,9 @@
 import json
+import logging
 import platform
 import shutil
 import sys
+import time
 import uuid
 from pathlib import Path
 import fastapi
@@ -19,7 +21,69 @@ from backend.api.schemas import (
 from backend.processing.media import probe
 from backend.clips.clip_generator import generate
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api")
+
+
+def stream_video_file(path: Path, filename: str, request: Request):
+    if not path.is_file():
+        raise HTTPException(404, "Source video file not found")
+
+    file_size = path.stat().st_size
+    content_type = "video/mp4"
+    if path.suffix.lower() in (".webm",):
+        content_type = "video/webm"
+    elif path.suffix.lower() in (".mov",):
+        content_type = "video/quicktime"
+    elif path.suffix.lower() in (".mkv",):
+        content_type = "video/x-matroska"
+
+    range_header = request.headers.get("Range")
+    if not range_header:
+        return FileResponse(
+            path,
+            filename=filename,
+            media_type=content_type,
+            content_disposition_type="inline",
+            headers={"Accept-Ranges": "bytes"},
+        )
+
+    try:
+        units, range_str = range_header.split("=", 1)
+        if units.strip().lower() != "bytes":
+            raise ValueError()
+        start_str, end_str = range_str.split("-", 1)
+        start = int(start_str) if start_str.strip() else 0
+        end = int(end_str) if end_str.strip() else file_size - 1
+        start = max(0, min(start, file_size - 1))
+        end = max(start, min(end, file_size - 1))
+    except Exception:
+        raise HTTPException(416, "Requested range not satisfiable")
+
+    content_length = end - start + 1
+
+    def file_stream():
+        with open(path, "rb") as f:
+            f.seek(start)
+            bytes_left = content_length
+            chunk_size = 512 * 1024  # 512 KB chunks for snappy seeking
+            while bytes_left > 0:
+                read_amount = min(bytes_left, chunk_size)
+                chunk = f.read(read_amount)
+                if not chunk:
+                    break
+                bytes_left -= len(chunk)
+                yield chunk
+
+    headers = {
+        "Content-Range": f"bytes {start}-{end}/{file_size}",
+        "Accept-Ranges": "bytes",
+        "Content-Length": str(content_length),
+        "Content-Type": content_type,
+        "Cache-Control": "public, max-age=3600",
+    }
+    return StreamingResponse(file_stream(), status_code=206, headers=headers)
 
 
 def get_video(vid):
@@ -276,10 +340,13 @@ def upload(
     size = 0
     try:
         with path.open("wb") as target:
-            while chunk := file.file.read(1024 * 1024):
+            while chunk := file.file.read(8 * 1024 * 1024):
                 size += len(chunk)
                 if size > MAX_UPLOAD:
-                    raise HTTPException(413, "File exceeds upload limit")
+                    raise HTTPException(
+                        413,
+                        f"File exceeds upload limit ({MAX_UPLOAD // (1024 * 1024)} MB)",
+                    )
                 if shutil.disk_usage(DATA).free < len(chunk) + 256 * 1024 * 1024:
                     raise HTTPException(507, "Insufficient free storage")
                 target.write(chunk)
@@ -320,16 +387,17 @@ def video(vid: str):
 
 
 @router.get("/videos/{vid}/source")
-def source(vid: str):
+def source(vid: str, request: Request):
     v = get_video(vid)
-    return FileResponse(
-        v["path"], filename=v["filename"], content_disposition_type="inline"
-    )
+    return stream_video_file(Path(v["path"]), v["filename"], request)
 
 
 @router.post("/videos/{vid}/process")
 def process(vid: str, request: Request):
     get_video(vid)
+    if vid in request.app.state.pipeline.active:
+        request.app.state.pipeline.cancel(vid)
+        time.sleep(0.05)
     if not request.app.state.pipeline.enqueue(vid):
         raise HTTPException(409, "Video already queued or processing")
     return public_video(get_video(vid))
@@ -368,26 +436,41 @@ def delete_video(vid: str, request: Request):
     with state.pipeline.lock:
         v = get_video(vid)
         if vid in state.pipeline.active:
-            raise HTTPException(409, "Wait for processing to finish before deleting")
-        state.store.delete_video(vid)
+            state.pipeline.cancel(vid)
+        try:
+            state.store.delete_video(vid)
+        except Exception as e:
+            logger.warning("Error deleting vectors for video %s: %s", vid, e)
         clips = db.rows("SELECT path FROM clips WHERE video_id=?", (vid,))
         db.execute("DELETE FROM videos WHERE id=?", (vid,))
-        Path(v["path"]).unlink(missing_ok=True)
+        try:
+            Path(v["path"]).unlink(missing_ok=True)
+        except Exception as e:
+            logger.warning("Could not unlink video file %s: %s", v["path"], e)
         for p in (DATA / "thumbnails").glob(f"{vid}_*.jpg"):
-            p.unlink(missing_ok=True)
+            try:
+                p.unlink(missing_ok=True)
+            except Exception as e:
+                logger.warning("Could not unlink thumbnail %s: %s", p, e)
         for c in clips:
-            Path(c["path"]).unlink(missing_ok=True)
+            try:
+                Path(c["path"]).unlink(missing_ok=True)
+            except Exception as e:
+                logger.warning("Could not unlink clip %s: %s", c["path"], e)
         # Search history contains thumbnails and metadata of source footage.
         with db.connection() as conn:
             for row in conn.execute("SELECT id,results FROM search_history").fetchall():
-                result = json.loads(row["results"])
-                result["results"] = [
-                    r for r in result["results"] if r["video_id"] != vid
-                ]
-                conn.execute(
-                    "UPDATE search_history SET results=? WHERE id=?",
-                    (json.dumps(result), row["id"]),
-                )
+                try:
+                    result = json.loads(row["results"])
+                    result["results"] = [
+                        r for r in result["results"] if r.get("video_id") != vid
+                    ]
+                    conn.execute(
+                        "UPDATE search_history SET results=? WHERE id=?",
+                        (json.dumps(result), row["id"]),
+                    )
+                except Exception:
+                    pass
     return {"deleted": True}
 
 

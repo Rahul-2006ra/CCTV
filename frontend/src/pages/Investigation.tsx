@@ -11,9 +11,10 @@ import {
   ArrowRight,
   Check,
   Tag,
+  Film,
 } from "lucide-react";
 import { post, time } from "../services/api";
-import type { Camera, Match, ProgressionStep, SearchResponse } from "../types";
+import type { Camera, Match, ProgressionStep, SearchResponse, Video } from "../types";
 import InvestigationView from "../components/InvestigationView";
 
 const objects = [
@@ -45,10 +46,12 @@ const colors = [
 
 export default function Investigation({
   cameras,
+  videos = [],
   initial,
   onInitialConsumed,
 }: {
   cameras: Camera[];
+  videos?: Video[];
   initial?: any;
   onInitialConsumed: () => void;
 }) {
@@ -209,59 +212,111 @@ export default function Investigation({
         </span>
       </div>
 
-      {targetVideoId && (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "12px 18px",
-            marginBottom: "16px",
-            borderRadius: "8px",
-            background: "linear-gradient(135deg, rgba(82, 196, 26, 0.12), rgba(16, 28, 22, 0.8))",
-            border: "1px solid rgba(82, 196, 26, 0.4)",
-            color: "#a9dfbf",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <ScanLine size={20} color="var(--accent)" />
-            <div>
-              <div style={{ fontWeight: 600, color: "#fff", fontSize: "14px", display: "flex", alignItems: "center", gap: "8px" }}>
-                <span>Target Video Focus:</span>
-                <span className="mono" style={{ color: "var(--accent)" }}>{targetVideoFilename || targetVideoId}</span>
-              </div>
-              <div style={{ fontSize: "12px", color: "#8c98a0" }}>
-                All search queries and progressive clues are scoped exclusively to this recording to prevent clutter or confusion.
-              </div>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              setTargetVideoId(null);
-              setTargetVideoFilename(null);
+      {/* Video Selector Bar */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: "12px",
+          padding: "12px 18px",
+          marginBottom: "16px",
+          borderRadius: "8px",
+          background: targetVideoId
+            ? "linear-gradient(135deg, rgba(82, 196, 26, 0.12), rgba(16, 28, 22, 0.8))"
+            : "#151b1e",
+          border: targetVideoId
+            ? "1px solid rgba(82, 196, 26, 0.4)"
+            : "1px solid #222d32",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <Film size={18} color="var(--accent)" />
+          <span style={{ fontSize: "13px", fontWeight: 600, color: "#d0d7de" }}>
+            Investigating Video:
+          </span>
+          <select
+            aria-label="Select video to investigate"
+            value={targetVideoId || "all"}
+            onChange={(e) => {
+              const val = e.target.value;
+              const vid = val === "all" ? null : val;
+              const found = videos.find((v) => v.id === vid);
+              setTargetVideoId(vid);
+              setTargetVideoFilename(found ? found.filename : null);
               if (query.trim()) {
-                void executeSearch(query.trim(), clues, null);
+                void executeSearch(query.trim(), clues, vid);
               }
             }}
             style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              background: "#222a2e",
+              background: "#1c2428",
               border: "1px solid #37444c",
-              color: "#d0d7de",
-              borderRadius: "4px",
+              color: "#fff",
+              borderRadius: "6px",
               padding: "6px 12px",
-              fontSize: "12px",
+              fontSize: "13px",
+              fontWeight: 500,
               cursor: "pointer",
+              outline: "none",
             }}
-            title="Search across all videos"
           >
-            <X size={14} /> Clear video focus
-          </button>
+            <option value="all">
+              🌐 All Videos ({videos.filter((v) => v.status === "READY").length} ready)
+            </option>
+            {videos.map((v) => (
+              <option key={v.id} value={v.id} disabled={v.status !== "READY"}>
+                📹 {v.filename} ({time(v.duration)}) — {v.status === "READY" ? "Ready" : v.status}
+              </option>
+            ))}
+          </select>
         </div>
-      )}
+
+        {targetVideoId ? (
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <span
+              style={{
+                fontSize: "12px",
+                color: "#a9dfbf",
+                background: "rgba(82, 196, 26, 0.15)",
+                padding: "3px 8px",
+                borderRadius: "4px",
+              }}
+            >
+              Scoped to: <strong>{targetVideoFilename || targetVideoId}</strong>
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setTargetVideoId(null);
+                setTargetVideoFilename(null);
+                if (query.trim()) {
+                  void executeSearch(query.trim(), clues, null);
+                }
+              }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+                background: "#222a2e",
+                border: "1px solid #37444c",
+                color: "#d0d7de",
+                borderRadius: "4px",
+                padding: "4px 8px",
+                fontSize: "12px",
+                cursor: "pointer",
+              }}
+              title="Search across all videos"
+            >
+              <X size={12} /> Clear focus
+            </button>
+          </div>
+        ) : (
+          <span style={{ fontSize: "12px", color: "#8c98a0" }}>
+            Investigating across all indexed recordings. Pick a video above to focus.
+          </span>
+        )}
+      </div>
 
       {/* Main Search Bar */}
       <section className="search-panel panel">
@@ -313,12 +368,16 @@ export default function Investigation({
         </form>
 
         <div className="suggestions">
-          <span>TRY A SEARCH</span>
+          <span>SCENARIO SUGGESTIONS</span>
           {[
             "Find a person wearing a red shirt",
-            "Find a white car",
-            "Find a person carrying a backpack",
             "Find someone running",
+            "Find an unattended backpack",
+            "Find a white car",
+            "Find two people fighting",
+            "Find suspicious loitering",
+            "Find night surveillance scene",
+            "Find a person walking",
           ].map((s) => (
             <button
               key={s}

@@ -19,7 +19,7 @@ def probe(path):
             ],
             capture_output=True,
             text=True,
-            timeout=30,
+            timeout=180,
             check=True,
         )
         data = json.loads(proc.stdout)

@@ -2,6 +2,7 @@ import json
 import re
 import uuid
 import numpy as np
+from fastapi import HTTPException
 from backend.storage import db
 from backend.search.ranking import attributes, group_temporally
 from backend.config import SAMPLE_FPS
@@ -75,6 +76,14 @@ class SearchEngine:
             v["id"]: v for v in db.rows("SELECT * FROM videos WHERE status='READY'")
         }
         if video_id:
+            vid_record = db.one("SELECT * FROM videos WHERE id=?", (video_id,))
+            if not vid_record:
+                raise HTTPException(404, "Selected video not found")
+            if vid_record["status"] != "READY":
+                raise HTTPException(
+                    400,
+                    f"Video '{vid_record['filename']}' is currently {vid_record['status']} ({vid_record['progress']:.0f}%). Please wait for indexing to finish.",
+                )
             ready = {k: v for k, v in ready.items() if k == video_id}
         cameras = {c["id"]: c["name"] for c in db.rows("SELECT id, name FROM cameras")}
 
@@ -83,8 +92,8 @@ class SearchEngine:
         if ready:
             vector = self.embedder.encode_text(initial_query)
 
-            # Restrict object_type filter in Qdrant only when a specific detector class is recognized
-            qdrant_filter_obj = obj if (obj and obj in LABELS) else None
+            # Only restrict object_type filter in Qdrant when explicitly requested by user filter
+            qdrant_filter_obj = object_type if object_type else None
             candidates = self.store.search(
                 vector,
                 dict(camera_id=camera_id, object_type=qdrant_filter_obj),
@@ -101,12 +110,19 @@ class SearchEngine:
                 cos = item["cosine"]
 
                 # 1. Object Type Gating:
-                # If query specified or implied a specific detected object (e.g. "bicycle", "car", "person"):
-                if obj and obj in LABELS:
+                if object_type:
+                    if cand_type != object_type:
+                        continue
+                elif target_col and obj and obj in LABELS:
+                    # When a colored object is targeted (e.g. "red shirt", "blue car"),
+                    # require the object crop containing color measurements
+                    if cand_type != obj:
+                        continue
+                elif obj and obj in LABELS:
                     if cand_type != obj and cand_type != "scene":
                         continue
                 elif cand_type == "person" and not is_person:
-                    # An open query not describing a person (e.g. "white crocs", "red ferrari", "helicopter")
+                    # An open query not describing a person (e.g. "red car", "helicopter", "bicycle")
                     # must NEVER match YOLO person crops!
                     continue
 
@@ -117,24 +133,26 @@ class SearchEngine:
                     else None
                 )
                 if cand_type == "scene":
+                    b_surv = 0.0
                     if cand_vec is not None:
                         b_surv = max(
                             float(np.dot(cand_vec, nv)) for nv in self.surveillance_neutrals
                         )
-                        margin = cos - b_surv
-                        if margin < 0.015 or cos < 0.245:
+                    margin = cos - b_surv
+                    effective_min = max(0.12, min_relevance)
+                    if cos < effective_min:
+                        continue
+                    if obj and obj in LABELS:
+                        frame_objs = [d.get("label") for d in item.get("detected_objects", [])]
+                        if obj not in frame_objs and cos < 0.22:
                             continue
-                    else:
-                        if cos < 0.245:
-                            continue
-                        margin = 0.0
                 else:
                     # For detected YOLO object crops (person, bicycle, car, etc.)
                     crop_threshold = (
                         0.14
                         if (is_person and cand_type == "person")
                         or (obj and obj == cand_type)
-                        else 0.20
+                        else 0.18
                     )
                     if cos < crop_threshold:
                         continue
@@ -244,7 +262,7 @@ class SearchEngine:
                         continue
                     if clue_obj and h_type != clue_obj and h_type != "scene":
                         continue
-                    if h["cosine"] >= 0.245:
+                    if h["cosine"] >= max(0.14, min_relevance):
                         valid_nearby.append(h)
 
                 if clue_obj:

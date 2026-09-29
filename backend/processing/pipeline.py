@@ -2,11 +2,12 @@ import json
 import logging
 import math
 import threading
+import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 import cv2
 from PIL import Image
-from backend.config import DATA, SAMPLE_FPS
+from backend.config import DATA, SAMPLE_FPS, MAX_SAMPLE_FRAMES
 from backend.storage import db
 from backend.color_analysis.color_detector import analyze
 from backend.events.rule_engine import RuleEngine
@@ -22,10 +23,25 @@ class Pipeline:
         )
         self.lock = threading.RLock()
         self.active = set()
+        self.cancelled = set()
         self.stopping = False
+
+    def cancel(self, vid):
+        with self.lock:
+            self.cancelled.add(vid)
+            self.active.discard(vid)
+            try:
+                db.update_video(vid, status="FAILED", error="Processing cancelled by user")
+                db.execute(
+                    "UPDATE processing_jobs SET status='FAILED',error='Processing cancelled',finished_at=CURRENT_TIMESTAMP WHERE video_id=? AND status NOT IN ('READY','FAILED')",
+                    (vid,),
+                )
+            except Exception:
+                pass
 
     def enqueue(self, vid):
         with self.lock:
+            self.cancelled.discard(vid)
             if vid in self.active:
                 return False
             self.active.add(vid)
@@ -46,9 +62,35 @@ class Pipeline:
             self.executor.submit(self.process, vid, job)
             return True
 
+    def _flush_batch(self, images, payloads, segments, alerts):
+        if not images:
+            return 0
+        for offset in range(0, len(images), 32):
+            chunk_imgs = images[offset : offset + 32]
+            chunk_payloads = payloads[offset : offset + 32]
+            vectors = self.embedder.encode_images(chunk_imgs)
+            self.store.upsert(vectors, chunk_payloads)
+        with db.connection() as conn:
+            if segments:
+                conn.executemany(
+                    "INSERT INTO video_segments(id,video_id,timestamp,payload) VALUES(?,?,?,?)",
+                    segments,
+                )
+            if alerts:
+                conn.executemany(
+                    "INSERT INTO alerts(id,video_id,camera_id,timestamp,event_type,severity,track_id,details) VALUES(?,?,?,?,?,?,?,?)",
+                    alerts,
+                )
+        return len(images)
+
     def process(self, vid, job):
         cap = None
         try:
+            with self.lock:
+                if self.stopping or vid in self.cancelled:
+                    logger.info("Processing aborted early for video %s", vid)
+                    return
+
             video = db.one("SELECT * FROM videos WHERE id=?", (vid,))
             db.update_video(vid, status="PROCESSING")
             db.execute(
@@ -65,36 +107,82 @@ class Pipeline:
             cap = cv2.VideoCapture(video["path"])
             if not cap.isOpened():
                 raise ValueError("Cannot decode source video")
-            step = max(1, round(video["fps"] / SAMPLE_FPS))
-            total = math.ceil(video["frame_count"] / step)
+
+            raw_fps = float(video.get("fps") or 30.0)
+            if raw_fps <= 0:
+                raw_fps = 30.0
+            duration = max(1.0, float(video.get("duration") or 1.0))
+            frame_count = int(video.get("frame_count") or round(duration * raw_fps))
+
+            # Adaptive sampling: For long videos (>5 mins), automatically adjust sampling rate
+            # so that large recordings index rapidly (e.g. in 20-40 seconds instead of hours)
+            target_fps = SAMPLE_FPS
+            if MAX_SAMPLE_FRAMES > 0 and duration * SAMPLE_FPS > MAX_SAMPLE_FRAMES:
+                target_fps = MAX_SAMPLE_FRAMES / duration
+
+            step = max(1, round(raw_fps / max(0.001, target_fps)))
+            total = math.ceil(frame_count / step)
+
             count = objects = embedded = 0
-            for index in range(0, video["frame_count"], step):
-                if self.stopping:
-                    raise RuntimeError("Shutdown interrupted processing")
-                cap.set(cv2.CAP_PROP_POS_FRAMES, index)
+            current_frame_pos = 0
+
+            batch_images = []
+            batch_payloads = []
+            batch_segments = []
+            batch_alerts = []
+            last_progress_time = time.monotonic()
+
+            for index in range(0, frame_count, step):
+                if self.stopping or vid in self.cancelled:
+                    logger.info("Processing halted for video %s (cancelled or stopping)", vid)
+                    return
+
+                # Fast sequential frame skipping:
+                # For small skips (<30 frames), cap.grab() is faster than seeking.
+                # For larger skips, cap.set with POS_MSEC jumps directly.
+                skip = index - current_frame_pos
+                if 0 <= skip < 30:
+                    for _ in range(skip):
+                        if not cap.grab():
+                            break
+                        current_frame_pos += 1
+                else:
+                    target_msec = (index / raw_fps) * 1000.0
+                    cap.set(cv2.CAP_PROP_POS_MSEC, target_msec)
+                    current_frame_pos = index
+
                 ok, frame = cap.read()
+                current_frame_pos += 1
                 if not ok:
                     if count > 0:
                         logger.info("Reached end of video stream at frame %s", index)
                         break
                     raise ValueError(f"Video decoding failed at frame {index}")
-                timestamp = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000
+
+                timestamp = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
                 if timestamp <= 0 and index > 0:
-                    timestamp = index / video["fps"]
+                    timestamp = index / raw_fps
+
                 h, w = frame.shape[:2]
-                if max(h, w) > 1280:
-                    frame = cv2.resize(
-                        frame,
-                        (round(w * 1280 / max(h, w)), round(h * 1280 / max(h, w))),
-                    )
+                if max(h, w) > 960:
+                    scale = 960.0 / max(h, w)
+                    frame = cv2.resize(frame, (round(w * scale), round(h * scale)))
                     h, w = frame.shape[:2]
-                db.update_video(vid, status="DETECTING")
+
                 detections = self.detector.detect(frame)
                 rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 frame_name = f"{vid}_{index}.jpg"
                 frame_path = DATA / "thumbnails" / frame_name
-                if not cv2.imwrite(str(frame_path), frame):
+
+                # High-speed thumbnail write (max 640px, JPEG 80 quality for fast disk I/O)
+                if max(h, w) > 640:
+                    scale_t = 640.0 / max(h, w)
+                    thumb = cv2.resize(frame, (round(w * scale_t), round(h * scale_t)))
+                else:
+                    thumb = frame
+                if not cv2.imwrite(str(frame_path), thumb, [cv2.IMWRITE_JPEG_QUALITY, 80]):
                     raise ValueError("Cannot write thumbnail")
+
                 base = dict(
                     video_id=vid,
                     camera_id=video["camera_id"],
@@ -104,16 +192,19 @@ class Pipeline:
                     frame_width=w,
                     frame_height=h,
                 )
-                images = [Image.fromarray(rgb)]
-                payloads = [
-                    dict(
-                        base,
-                        object_type="scene",
-                        track_id=None,
-                        colors={},
-                        bounding_box=None,
-                    )
-                ]
+                scene_payload = dict(
+                    base,
+                    object_type="scene",
+                    track_id=None,
+                    colors={},
+                    bounding_box=None,
+                )
+                batch_images.append(Image.fromarray(rgb))
+                batch_payloads.append(scene_payload)
+                batch_segments.append(
+                    (str(uuid.uuid4()), vid, timestamp, json.dumps(scene_payload))
+                )
+
                 for det in detections:
                     x1, y1, x2, y2 = [int(n) for n in det["bounding_box"]]
                     crop = rgb[max(0, y1) : min(h, y2), max(0, x1) : min(w, x2)]
@@ -121,8 +212,8 @@ class Pipeline:
                         continue
                     colors = analyze(crop, person=det["label"] == "person")
                     det["colors"] = colors
-                    images.append(Image.fromarray(crop))
-                    payloads.append(
+                    batch_images.append(Image.fromarray(crop))
+                    batch_payloads.append(
                         dict(
                             base,
                             object_type=det["label"],
@@ -132,19 +223,9 @@ class Pipeline:
                             detection_confidence=det["confidence"],
                         )
                     )
-                db.update_video(vid, status="EMBEDDING")
-                for offset in range(0, len(images), 16):
-                    vectors = self.embedder.encode_images(images[offset : offset + 16])
-                    db.update_video(vid, status="INDEXING")
-                    self.store.upsert(vectors, payloads[offset : offset + 16])
-                    embedded += len(vectors)
-                db.execute(
-                    "INSERT INTO video_segments(id,video_id,timestamp,payload) VALUES(?,?,?,?)",
-                    (str(uuid.uuid4()), vid, timestamp, json.dumps(payloads[0])),
-                )
+
                 for event in rules.evaluate(detections, timestamp, w, h):
-                    db.execute(
-                        "INSERT INTO alerts(id,video_id,camera_id,timestamp,event_type,severity,track_id,details) VALUES(?,?,?,?,?,?,?,?)",
+                    batch_alerts.append(
                         (
                             str(uuid.uuid4()),
                             vid,
@@ -154,25 +235,62 @@ class Pipeline:
                             event["severity"],
                             event["track_id"],
                             event["details"],
-                        ),
+                        )
                     )
+
                 count += 1
                 objects += len(detections)
-                db.update_video(
-                    vid,
-                    progress=min(99, count / total * 100),
-                    frames=count,
-                    objects=objects,
-                    embeddings=embedded,
+
+                # Batch flush to CLIP and Qdrant every 32 images
+                if len(batch_images) >= 32:
+                    embedded += self._flush_batch(
+                        batch_images, batch_payloads, batch_segments, batch_alerts
+                    )
+                    batch_images.clear()
+                    batch_payloads.clear()
+                    batch_segments.clear()
+                    batch_alerts.clear()
+
+                # Throttled progress update (max twice per second) to prevent DB lock contention
+                now = time.monotonic()
+                if now - last_progress_time >= 0.5:
+                    last_progress_time = now
+                    db.update_video(
+                        vid,
+                        progress=min(99, count / max(1, total) * 100),
+                        frames=count,
+                        objects=objects,
+                        embeddings=embedded,
+                    )
+
+            # Flush any remaining items in the buffer
+            if batch_images:
+                embedded += self._flush_batch(
+                    batch_images, batch_payloads, batch_segments, batch_alerts
                 )
+                batch_images.clear()
+                batch_payloads.clear()
+                batch_segments.clear()
+                batch_alerts.clear()
+
             if not count:
                 raise ValueError("No frames decoded")
-            db.update_video(vid, status="READY", progress=100)
+            db.update_video(
+                vid,
+                status="READY",
+                progress=100,
+                frames=count,
+                objects=objects,
+                embeddings=embedded,
+            )
             db.execute(
                 "UPDATE processing_jobs SET status='READY',finished_at=CURRENT_TIMESTAMP WHERE id=?",
                 (job,),
             )
         except Exception:
+            with self.lock:
+                if vid in self.cancelled or self.stopping:
+                    return
             logger.exception("Processing failed for %s", vid)
             try:
                 self.store.delete_video(vid)
@@ -186,9 +304,13 @@ class Pipeline:
             )
         finally:
             if cap is not None:
-                cap.release()
+                try:
+                    cap.release()
+                except Exception:
+                    pass
             with self.lock:
                 self.active.discard(vid)
+                self.cancelled.discard(vid)
 
     def close(self):
         self.stopping = True
