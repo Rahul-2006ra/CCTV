@@ -1,3 +1,14 @@
+---
+title: CamTrace Intelligence
+emoji: 🎥
+colorFrom: blue
+colorTo: green
+sdk: docker
+pinned: true
+app_port: 7860
+short_description: AI CCTV Intelligence Platform - SIH 2026 | Team Phoenix
+---
+
 # CamTrace Intelligence
 
 ### AI-Based Intelligent Video Analytics Platform for Border Surveillance Using Existing CCTV Infrastructure
@@ -208,8 +219,8 @@ CamTrace includes a multi-stage Docker build that compiles the frontend and runs
 # Build the unified container
 docker build -t camtrace-intelligence .
 
-# Run on port 8000
-docker run -p 8000:8000 camtrace-intelligence
+# Run on port 7860
+docker run -p 7860:7860 camtrace-intelligence
 ```
 
 For 1-click cloud deployment on **Railway**, **Render**, or **Hugging Face Spaces**, refer to [`DEPLOYMENT.md`](DEPLOYMENT.md).

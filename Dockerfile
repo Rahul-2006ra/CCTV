@@ -17,8 +17,9 @@ FROM python:3.11-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PORT=8000 \
-    CCTV_MAX_SAMPLE_FRAMES=180
+    PORT=7860 \
+    CCTV_MAX_SAMPLE_FRAMES=180 \
+    CCTV_DATA_DIR=/app/data
 
 # Install system dependencies: ffmpeg, ffprobe, graphics & system libraries
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -44,7 +45,8 @@ COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 # Create persistent storage directories
 RUN mkdir -p /app/data/uploads /app/data/thumbnails /app/data/clips /app/data/qdrant
 
-EXPOSE 8000
+# Expose port 7860 (Hugging Face Spaces default)
+EXPOSE 7860
 
-# Start Uvicorn bound to 0.0.0.0 and dynamic $PORT
-CMD ["sh", "-c", "uvicorn backend.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# Start Uvicorn bound to 0.0.0.0 and dynamic $PORT (HF sets PORT=7860 automatically)
+CMD ["sh", "-c", "uvicorn backend.main:app --host 0.0.0.0 --port ${PORT:-7860}"]
