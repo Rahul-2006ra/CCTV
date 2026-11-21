@@ -49,6 +49,8 @@ def init_db():
             c.execute(
                 "INSERT INTO cameras(id,name,zone) VALUES('CAM-MAIN', 'Main Camera (Default)', '[]')"
             )
+    from backend.storage.migrations import run_migrations
+    run_migrations()
 
 
 def rows(sql, params=()):
