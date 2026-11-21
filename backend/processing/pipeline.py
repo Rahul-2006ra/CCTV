@@ -11,6 +11,7 @@ from backend.config import DATA, SAMPLE_FPS, MAX_SAMPLE_FRAMES
 from backend.storage import db
 from backend.color_analysis.color_detector import analyze
 from backend.events.rule_engine import RuleEngine
+from backend.intelligence.threat_engine import ThreatEngine
 
 logger = logging.getLogger(__name__)
 
@@ -77,10 +78,16 @@ class Pipeline:
                     segments,
                 )
             if alerts:
-                conn.executemany(
-                    "INSERT INTO alerts(id,video_id,camera_id,timestamp,event_type,severity,track_id,details) VALUES(?,?,?,?,?,?,?,?)",
-                    alerts,
-                )
+                if len(alerts[0]) >= 10:
+                    conn.executemany(
+                        "INSERT INTO alerts(id,video_id,camera_id,timestamp,event_type,severity,track_id,details,threat_score,rule_category) VALUES(?,?,?,?,?,?,?,?,?,?)",
+                        alerts,
+                    )
+                else:
+                    conn.executemany(
+                        "INSERT INTO alerts(id,video_id,camera_id,timestamp,event_type,severity,track_id,details) VALUES(?,?,?,?,?,?,?,?)",
+                        alerts,
+                    )
         return len(images)
 
     def process(self, vid, job):
@@ -103,7 +110,9 @@ class Pipeline:
             self.detector.reset()
             self.store.ensure(self.embedder.get_embedding_dimension())
             camera = db.one("SELECT * FROM cameras WHERE id=?", (video["camera_id"],))
-            rules = RuleEngine(json.loads(camera["zone"]) if camera else [])
+            parsed_zone = json.loads(camera["zone"]) if camera and camera["zone"] else []
+            rules = RuleEngine(parsed_zone)
+            threat_evaluator = ThreatEngine(zone=parsed_zone)
             cap = cv2.VideoCapture(video["path"])
             if not cap.isOpened():
                 raise ValueError("Cannot decode source video")
@@ -224,6 +233,22 @@ class Pipeline:
                         )
                     )
 
+                for event in threat_evaluator.evaluate_frame(detections, timestamp, w, h, camera_id=video.get("camera_id") or "CAM-MAIN"):
+                    batch_alerts.append(
+                        (
+                            str(uuid.uuid4()),
+                            vid,
+                            video["camera_id"],
+                            event["timestamp"],
+                            event["event_type"],
+                            event["severity"],
+                            event["track_id"],
+                            event["details"],
+                            event.get("threat_score", 50.0),
+                            event.get("category", "ANOMALY"),
+                        )
+                    )
+
                 for event in rules.evaluate(detections, timestamp, w, h):
                     batch_alerts.append(
                         (
@@ -235,6 +260,8 @@ class Pipeline:
                             event["severity"],
                             event["track_id"],
                             event["details"],
+                            65.0 if event["severity"] == "HIGH" else 40.0,
+                            "SPATIAL",
                         )
                     )
 
