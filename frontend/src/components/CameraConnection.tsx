@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Radio, Square, RefreshCw, Video } from "lucide-react";
-import { api, post } from "../services/api";
+import { api, post, apiUrl } from "../services/api";
 import type { Camera } from "../types";
 
 export default function CameraConnection({
@@ -97,11 +97,11 @@ export default function CameraConnection({
         <div style={{ position: "relative", marginBottom: "12px" }}>
           <img
             className="live-preview"
-            src={`/api/cameras/${camera.id}/stream`}
+            src={apiUrl(`/cameras/${camera.id}/stream`)}
             alt={`Live stream from ${camera.name}`}
             onError={(e) => {
               // Fallback to preview image if MJPEG stream is initializing
-              (e.target as HTMLImageElement).src = `/api/cameras/${camera.id}/preview?t=${Date.now()}`;
+              (e.target as HTMLImageElement).src = apiUrl(`/cameras/${camera.id}/preview?t=${Date.now()}`);
             }}
           />
           <div

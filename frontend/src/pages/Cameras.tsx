@@ -12,7 +12,7 @@ import {
   SquareDashedBottom,
   LayoutGrid,
 } from "lucide-react";
-import { api, post } from "../services/api";
+import { api, post, apiUrl } from "../services/api";
 import type { Camera } from "../types";
 import CameraConnection from "../components/CameraConnection";
 
@@ -211,11 +211,11 @@ export default function Cameras({
                       {isLive ? (
                         <>
                           <img
-                            src={`/api/cameras/${c.id}/stream`}
+                            src={apiUrl(`/cameras/${c.id}/stream`)}
                             alt={`Live Stream - ${c.name}`}
                             onError={(e) => {
                               // If stream is reconnecting, fall back to preview frame
-                              (e.target as HTMLImageElement).src = `/api/cameras/${c.id}/preview?t=${Date.now()}`;
+                              (e.target as HTMLImageElement).src = apiUrl(`/cameras/${c.id}/preview?t=${Date.now()}`);
                             }}
                           />
                           <div className="wall-live-badge">

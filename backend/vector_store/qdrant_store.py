@@ -1,3 +1,4 @@
+import os
 import hashlib
 import threading
 import uuid
@@ -23,9 +24,14 @@ class VectorStore:
         self._path.mkdir(parents=True, exist_ok=True)
         self._file = self._path / f"{self.collection}_fallback.json"
         self._fallback_points = []
+        qdrant_url = os.getenv("QDRANT_URL")
+        qdrant_api_key = os.getenv("QDRANT_API_KEY")
         if QdrantClient is not None:
             try:
-                self.client = QdrantClient(path=str(self._path))
+                if qdrant_url:
+                    self.client = QdrantClient(url=qdrant_url, api_key=qdrant_api_key)
+                else:
+                    self.client = QdrantClient(path=str(self._path))
             except Exception:
                 self.client = None
         else:

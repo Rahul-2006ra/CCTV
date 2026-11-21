@@ -17,7 +17,7 @@ import {
   Layers,
   LayoutGrid,
 } from "lucide-react";
-import { api, post, time } from "../services/api";
+import { api, post, time, apiUrl, mediaUrl } from "../services/api";
 import type { Camera, Video } from "../types";
 
 export default function Footage({
@@ -135,7 +135,7 @@ export default function Footage({
         xhr.onerror = () => reject(new Error("Network error during video upload"));
         xhr.ontimeout = () => reject(new Error("Video upload timed out"));
 
-        xhr.open("POST", "/api/videos");
+        xhr.open("POST", apiUrl("/videos"));
         xhr.send(data);
       });
 
@@ -243,7 +243,7 @@ export default function Footage({
 
   function renderVideoCard(v: Video) {
     const cam = cameras.find((c) => c.id === v.camera_id);
-    const thumbUrl = `/media/thumbnails/${v.id}_0.jpg`;
+    const thumbUrl = mediaUrl(`/media/thumbnails/${v.id}_0.jpg`);
     const isProcessing = v.status !== "READY" && v.status !== "FAILED";
 
     return (

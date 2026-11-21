@@ -6,7 +6,7 @@ import {
   Film,
   LoaderCircle,
 } from "lucide-react";
-import { api, post, time } from "../services/api";
+import { api, post, time, apiUrl, mediaUrl } from "../services/api";
 import type { Evidence, Match } from "../types";
 
 export default function InvestigationView({
@@ -110,7 +110,7 @@ export default function InvestigationView({
               controls
               playsInline
               preload="auto"
-              src={original ? `/api/videos/${match.video_id}/source` : clip.url}
+              src={original ? apiUrl(`/videos/${match.video_id}/source`) : mediaUrl(clip.url)}
               onLoadedMetadata={() => {
                 seek(pendingSeek.current ?? (original ? match.timestamp : clip.start));
                 pendingSeek.current = null;
@@ -154,7 +154,7 @@ export default function InvestigationView({
             {clip && (
               <a
                 className="button"
-                href={`/api/clips/${clip.id}?download=true`}
+                href={apiUrl(`/clips/${clip.id}?download=true`)}
                 download
               >
                 <Download size={14} /> Download clip

@@ -9,6 +9,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { intelligenceApi } from "../services/intelligenceApi";
+import { apiUrl } from "../services/api";
 import type { InvestigationCase } from "../types/intelligence";
 import { RiskBadge } from "../components/RiskBadge";
 
@@ -117,7 +118,7 @@ export const IncidentReports: React.FC = () => {
 
               <div style={{ display: "flex", justifyContent: "flex-end" }}>
                 <a
-                  href={c.pdf_report_path || `/api/intelligence/reports/${c.id}/download`}
+                  href={c.pdf_report_path ? (c.pdf_report_path.startsWith("http") ? c.pdf_report_path : apiUrl(`/intelligence/reports/${c.id}/download`)) : apiUrl(`/intelligence/reports/${c.id}/download`)}
                   target="_blank"
                   rel="noreferrer"
                   style={{

@@ -1,8 +1,22 @@
+export const API_BASE = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
+
+export function apiUrl(path: string): string {
+  const clean = path.startsWith("/") ? path : `/${path}`;
+  return `${API_BASE}/api${clean}`;
+}
+
+export function mediaUrl(path: string): string {
+  if (!path) return "";
+  if (path.startsWith("http://") || path.startsWith("https://")) return path;
+  const clean = path.startsWith("/") ? path : `/${path}`;
+  return `${API_BASE}${clean}`;
+}
+
 export async function api<T = any>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
-  const response = await fetch("/api" + path, {
+  const response = await fetch(apiUrl(path), {
     ...options,
     headers:
       options.body instanceof FormData
