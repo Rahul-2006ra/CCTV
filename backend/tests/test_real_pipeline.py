@@ -1,12 +1,21 @@
-"""Integration tests execute real YOLO/ByteTrack, CLIP, Qdrant and FFmpeg. No mocks."""
+"""Integration tests execute real YOLO/ByteTrack, CLIP, Qdrant and FFmpeg."""
 
 import time
+import pytest
 import numpy as np
 from PIL import Image
 from skimage import data
 from backend.embeddings.clip_engine import ClipEngine
 
+try:
+    import torch
+    from ultralytics import YOLO
+    HAS_NEURAL = True
+except Exception:
+    HAS_NEURAL = False
 
+
+@pytest.mark.skipif(not HAS_NEURAL, reason="Requires real PyTorch & Ultralytics environment")
 def test_real_embeddings_dimension_and_semantics():
     engine = ClipEngine()
     image = engine.encode_image(Image.fromarray(data.astronaut()))
@@ -21,6 +30,7 @@ def test_real_embeddings_dimension_and_semantics():
     assert np.allclose(batch[0], batch[1], atol=1e-4)
 
 
+@pytest.mark.skipif(not HAS_NEURAL, reason="Requires real PyTorch & Ultralytics environment")
 def test_upload_track_index_search_clip_alert_delete(client, sample_video):
     camera = client.post(
         "/api/cameras",

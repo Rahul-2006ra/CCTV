@@ -5,8 +5,14 @@ import threading
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-import cv2
-from PIL import Image
+try:
+    import cv2
+except ImportError:
+    cv2 = None
+try:
+    from PIL import Image
+except ImportError:
+    Image = None
 from backend.config import DATA, SAMPLE_FPS, MAX_SAMPLE_FRAMES
 from backend.storage import db
 from backend.color_analysis.color_detector import analyze

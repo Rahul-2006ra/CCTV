@@ -8,11 +8,20 @@ import subprocess
 from pathlib import Path
 import cv2
 import numpy as np
-from skimage import data
+try:
+    from skimage import data
+    def load_test_image():
+        return data.astronaut()
+except ImportError:
+    def load_test_image():
+        img = np.zeros((512, 512, 3), dtype=np.uint8)
+        img[100:400, 150:350] = [200, 200, 200]
+        img[50:100, 200:300] = [220, 180, 140]
+        return img
 
 
 def generate(output, seconds=12):
-    image = cv2.cvtColor(data.astronaut(), cv2.COLOR_RGB2BGR)
+    image = cv2.cvtColor(load_test_image(), cv2.COLOR_RGB2BGR)
     output = Path(output)
     output.parent.mkdir(parents=True, exist_ok=True)
     temp = output.with_suffix(".avi")

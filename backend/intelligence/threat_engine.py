@@ -1,10 +1,42 @@
 """SentinelAI Threat Intelligence & Autonomous Anomaly Discovery Engine."""
 
 import math
-import cv2
+try:
+    import cv2
+except ImportError:
+    cv2 = None
 import numpy as np
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple, Any
+
+
+def is_point_in_zone(zone, point):
+    """Point in polygon check using OpenCV when available, with ray-casting fallback."""
+    if zone is None or len(zone) < 3:
+        return False
+    if cv2 is not None:
+        try:
+            poly = np.array(zone, dtype=np.float32)
+            return cv2.pointPolygonTest(poly, (float(point[0]), float(point[1])), False) >= 0
+        except Exception:
+            pass
+    # Ray casting fallback
+    x, y = float(point[0]), float(point[1])
+    poly = list(zone)
+    n = len(poly)
+    inside = False
+    p1x, p1y = poly[0]
+    for i in range(1, n + 1):
+        p2x, p2y = poly[i % n]
+        if y > min(p1y, p2y):
+            if y <= max(p1y, p2y):
+                if x <= max(p1x, p2x):
+                    if p1y != p2y:
+                        xinters = (y - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
+                    if p1x == p2x or x <= xinters:
+                        inside = not inside
+        p1x, p1y = p2x, p2y
+    return inside
 
 
 class ThreatEngine:
@@ -95,8 +127,8 @@ class ThreatEngine:
             # ANOMALY 1: Restricted Zone Intrusion
             # -------------------------------------------------------------
             in_zone = False
-            if self.zone is not None and len(self.zone) >= 3:
-                in_zone = cv2.pointPolygonTest(self.zone, point, False) >= 0
+            if self.zone is not None:
+                in_zone = is_point_in_zone(self.zone, point)
                 if in_zone:
                     candidate_events.append({
                         "event_type": "Restricted Zone Incursion",
@@ -109,21 +141,21 @@ class ThreatEngine:
             # ANOMALY 2: Speed / Sudden Acceleration / Sprints
             # -------------------------------------------------------------
             speed = 0.0
-            if prev and 0 < (timestamp - prev["time"]) <= 3:
+            if prev:
                 dt = timestamp - prev["time"]
-                dist = math.dist(point, prev["point"])
-                speed = dist / dt
-
-                if label in ("person", "car", "motorcycle", "bicycle") and speed > self.rapid_speed_threshold:
-                    candidate_events.append({
-                        "event_type": "Suspicious Rapid Movement",
-                        "category": "DYNAMIC_ANOMALY",
-                        "base_score": 68.0 + min(20.0, (speed - self.rapid_speed_threshold) * 50),
-                        "details": f"High image-plane velocity ({speed:.3f} units/s) indicating sudden flight or sprint.",
-                    })
+                if 0 < dt <= 3.0:
+                    dist = math.dist(point, prev["point"])
+                    speed = dist / dt
+                    if label in ("person", "car", "motorcycle", "bicycle") and speed > self.rapid_speed_threshold:
+                        candidate_events.append({
+                            "event_type": "Suspicious Rapid Movement",
+                            "category": "DYNAMIC_ANOMALY",
+                            "base_score": 68.0 + min(20.0, (speed - self.rapid_speed_threshold) * 50),
+                            "details": f"High image-plane velocity ({speed:.3f} units/s) indicating sudden flight or sprint.",
+                        })
 
                 # Maintain stationary anchor
-                if math.dist(point, prev["anchor"]) < 0.035:
+                if math.dist(point, prev["anchor"]) < 0.05:
                     now_stationary = prev["stationary"]
 
                 # ---------------------------------------------------------

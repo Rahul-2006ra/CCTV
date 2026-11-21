@@ -1,6 +1,10 @@
 import math
-import cv2
+try:
+    import cv2
+except ImportError:
+    cv2 = None
 import numpy as np
+from backend.intelligence.threat_engine import is_point_in_zone
 
 
 class RuleEngine:
@@ -34,7 +38,7 @@ class RuleEngine:
             types = []
             if (
                 self.zone is not None
-                and cv2.pointPolygonTest(self.zone, point, False) >= 0
+                and is_point_in_zone(self.zone, point)
             ):
                 types.append(
                     (

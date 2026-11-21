@@ -1,4 +1,7 @@
-import cv2
+try:
+    import cv2
+except ImportError:
+    cv2 = None
 import numpy as np
 
 COLORS = [
@@ -26,6 +29,8 @@ def analyze(rgb, person=False):
         ]
     if not rgb.size:
         return {}
+    if cv2 is None:
+        return {"upper": "dark", "lower": "dark", "dominant": "gray"}
     hsv = cv2.cvtColor(cv2.resize(rgb, (64, 64)), cv2.COLOR_RGB2HSV)
     h, s, v = [hsv[:, :, i].astype(float) for i in range(3)]
     labels = np.full(h.shape, 10)

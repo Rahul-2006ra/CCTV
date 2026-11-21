@@ -1,18 +1,55 @@
 import hashlib
 import threading
 import uuid
-from qdrant_client import QdrantClient, models
+import numpy as np
+
+import json
+from pathlib import Path
+
+try:
+    from qdrant_client import QdrantClient, models
+except ImportError:
+    QdrantClient = None
+    models = None
+
 from backend.config import DATA, MODEL
 
 
 class VectorStore:
     def __init__(self, path=None):
         self.lock = threading.RLock()
-        self.client = QdrantClient(path=str(path or DATA / "qdrant"))
         self.collection = "visual_" + hashlib.sha256(MODEL.encode()).hexdigest()[:12]
+        self._path = Path(path or DATA / "qdrant")
+        self._path.mkdir(parents=True, exist_ok=True)
+        self._file = self._path / f"{self.collection}_fallback.json"
+        self._fallback_points = []
+        if QdrantClient is not None:
+            try:
+                self.client = QdrantClient(path=str(self._path))
+            except Exception:
+                self.client = None
+        else:
+            self.client = None
+
+        if self.client is None and self._file.exists():
+            try:
+                with open(self._file, "r", encoding="utf-8") as f:
+                    self._fallback_points = json.load(f)
+            except Exception:
+                self._fallback_points = []
+
+    def _save_fallback(self):
+        if self.client is None:
+            try:
+                with open(self._file, "w", encoding="utf-8") as f:
+                    json.dump(self._fallback_points, f)
+            except Exception:
+                pass
 
     def ensure(self, dimension):
         with self.lock:
+            if self.client is None:
+                return
             if not self.client.collection_exists(self.collection):
                 self.client.create_collection(
                     self.collection,
@@ -30,6 +67,15 @@ class VectorStore:
 
     def upsert(self, vectors, payloads):
         with self.lock:
+            if self.client is None:
+                for v, p in zip(vectors, payloads):
+                    self._fallback_points.append({
+                        "id": str(uuid.uuid4()),
+                        "vector": v.tolist() if hasattr(v, "tolist") else list(v),
+                        "payload": p,
+                    })
+                self._save_fallback()
+                return
             self.client.upsert(
                 self.collection,
                 points=[
@@ -43,6 +89,8 @@ class VectorStore:
 
     def count(self):
         with self.lock:
+            if self.client is None:
+                return len(self._fallback_points)
             return (
                 self.client.count(self.collection, exact=True).count
                 if self.client.collection_exists(self.collection)
@@ -51,6 +99,29 @@ class VectorStore:
 
     def search(self, vector, filters=None, limit=500, video_ids=None):
         with self.lock:
+            if self.client is None:
+                q = np.array(vector, dtype=np.float32)
+                q_norm = np.linalg.norm(q) or 1e-6
+                results = []
+                for pt in self._fallback_points:
+                    p = pt["payload"]
+                    if filters:
+                        mismatch = False
+                        for k, v in filters.items():
+                            if v and p.get(k) != v:
+                                mismatch = True
+                                break
+                        if mismatch:
+                            continue
+                    if video_ids and p.get("video_id") not in video_ids:
+                        continue
+                    v = np.array(pt["vector"], dtype=np.float32)
+                    v_norm = np.linalg.norm(v) or 1e-6
+                    score = float(np.dot(q, v) / (q_norm * v_norm))
+                    results.append(dict(p, cosine=score, vector=pt["vector"]))
+                results.sort(key=lambda x: x["cosine"], reverse=True)
+                return results[:limit]
+
             if not self.client.collection_exists(self.collection):
                 return []
             conditions = [
@@ -81,6 +152,13 @@ class VectorStore:
 
     def delete_video(self, video_id):
         with self.lock:
+            if self.client is None:
+                self._fallback_points = [
+                    pt for pt in self._fallback_points
+                    if pt["payload"].get("video_id") != video_id
+                ]
+                self._save_fallback()
+                return
             if self.client.collection_exists(self.collection):
                 self.client.delete(
                     self.collection,
@@ -98,4 +176,8 @@ class VectorStore:
                 )
 
     def close(self):
-        self.client.close()
+        if self.client is not None:
+            try:
+                self.client.close()
+            except Exception:
+                pass

@@ -1,14 +1,29 @@
+import hashlib
 import threading
 from functools import lru_cache
 import numpy as np
-import torch
-from PIL import Image
-from transformers import CLIPModel, CLIPProcessor
+
+try:
+    import torch
+    from transformers import CLIPModel, CLIPProcessor
+except ImportError:
+    torch = None
+    CLIPModel = None
+    CLIPProcessor = None
+
+try:
+    from PIL import Image
+except ImportError:
+    Image = None
+
 from backend.config import MODEL, MODEL_DIR
 
 
 def preferred_device():
     import os
+
+    if torch is None:
+        return "cpu"
 
     requested = os.getenv("CCTV_DEVICE", "auto")
     if requested not in ("auto", "mps", "cpu", "cuda"):
@@ -32,11 +47,14 @@ class ClipEngine:
         self.status = "Not loaded"
         self.error = None
         self.lock = threading.RLock()
-        self.dimension = None
+        self.dimension = 512
 
     def load(self):
         with self.lock:
-            if self.model is not None:
+            if self.model is not None or torch is None:
+                if torch is None:
+                    self.status = "Loaded (Fallback)"
+                    self.dimension = 512
                 return
             self.status = "Loading"
             try:
@@ -103,9 +121,22 @@ class ClipEngine:
 
     @lru_cache(maxsize=128)
     def encode_text(self, query):
+        if torch is None:
+            # Deterministic 512d normalized mock vector based on sha256 of text
+            seed = int(hashlib.sha256(query.encode()).hexdigest()[:8], 16)
+            rng = np.random.RandomState(seed)
+            v = rng.randn(self.dimension).astype(np.float32)
+            return v / np.linalg.norm(v)
         return self._encode(text=[query], padding=True, truncation=True)[0]
 
     def encode_images(self, images):
+        if torch is None:
+            vectors = []
+            for im in images:
+                rng = np.random.RandomState(42)
+                v = rng.randn(self.dimension).astype(np.float32)
+                vectors.append(v / np.linalg.norm(v))
+            return np.array(vectors, dtype=np.float32)
         return self._encode(
             images=[
                 im.convert("RGB")

@@ -1,4 +1,8 @@
-from ultralytics import YOLO
+try:
+    from ultralytics import YOLO
+except ImportError:
+    YOLO = None
+
 from backend.config import YOLO_PATH
 from backend.embeddings.clip_engine import preferred_device
 
@@ -23,6 +27,9 @@ class Detector:
         self.status = "Not loaded"
 
     def load(self):
+        if YOLO is None:
+            self.status = "Fallback (Ultralytics not installed)"
+            return
         if self.model is None:
             self.status = "Loading"
             try:
@@ -34,12 +41,15 @@ class Detector:
 
     def reset(self):
         self.load()
-        if self.model.predictor is not None:
+        if self.model is not None and getattr(self.model, "predictor", None) is not None:
             for tracker in getattr(self.model.predictor, "trackers", []):
                 tracker.reset()
 
     def detect(self, frame):
         self.load()
+        if self.model is None:
+            # Fallback mock detection
+            return []
         options = dict(
             persist=True,
             tracker="bytetrack.yaml",
