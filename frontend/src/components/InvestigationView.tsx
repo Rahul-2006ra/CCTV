@@ -139,6 +139,14 @@ export default function InvestigationView({
             >
               <ExternalLink size={14} /> Open Original
             </button>
+            <button
+              onClick={() => {
+                window.location.href = `/routes`;
+              }}
+              style={{ background: "#0369a1", color: "white", borderColor: "#38bdf8" }}
+            >
+              ⚡ Trace Route
+            </button>
             <button onClick={generate} disabled={busy}>
               <Film size={14} />
               {busy ? "Generating…" : "Generate Clip"}
