@@ -1,236 +1,182 @@
----
-title: CamTrace Intelligence
-emoji: 🎥
-colorFrom: blue
-colorTo: green
-sdk: docker
-pinned: true
-app_port: 7860
-short_description: AI CCTV Intelligence Platform - SIH 2026 | Team Phoenix
----
+<div align="center">
+  <h1>🛡️ SentinelAI</h1>
+  <h3>Autonomous Surveillance Intelligence &amp; Forensic Reconstruction Platform</h3>
+  <p><b>Transforming existing CCTV networks into proactive, autonomous defense intelligence grids.</b></p>
+  
+  <p>
+    <a href="#-key-capabilities">Capabilities</a> &bull;
+    <a href="#-system-architecture">Architecture</a> &bull;
+    <a href="#-quickstart-guide">Quickstart</a> &bull;
+    <a href="#-90-second-demo-script">Live Demo</a> &bull;
+    <a href="#-hackathon-presentation">Pitch Deck</a>
+  </p>
 
-# CamTrace Intelligence
-
-### AI-Based Intelligent Video Analytics Platform for Border Surveillance Using Existing CCTV Infrastructure
-
-> **Smart India Hackathon 2026**  
-> **Problem Statement ID:** SIH26187  
-> **Theme:** Smart Automation | **Category:** Software  
-> **Team ID:** S4D068-1 | **Team Name:** Phoenix  
+  <p>
+    <img src="https://img.shields.io/badge/Platform-SentinelAI-0284c7?style=for-the-badge&logo=shield" alt="Platform" />
+    <img src="https://img.shields.io/badge/FastAPI-0.115+-009688?style=for-the-badge&logo=fastapi" alt="FastAPI" />
+    <img src="https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react" alt="React" />
+    <img src="https://img.shields.io/badge/Qdrant-Vector_DB-DC382D?style=for-the-badge" alt="Qdrant" />
+    <img src="https://img.shields.io/badge/YOLOv8-Ultralytics-00FFFF?style=for-the-badge" alt="YOLOv8" />
+  </p>
+</div>
 
 ---
 
 ## 📌 Executive Summary
 
-**CamTrace Intelligence** is an AI-powered visual investigation platform that transforms raw CCTV footage into searchable, verifiable evidence. It empowers border surveillance operators, law enforcement, and security investigators to locate and refine people, vehicles, objects, or scenario events using natural-language queries, instantly retrieving contextual video evidence clips rather than isolated, inconclusive still frames.
+**SentinelAI** is an enterprise-grade autonomous surveillance intelligence platform engineered for border defense, critical infrastructure, smart cities, and security command centers. Moving physical surveillance beyond passive recording and reactive manual search, SentinelAI delivers:
+
+1. **Cross-Camera Route Reconstruction (Re-ID):** Automatically tracks and connects suspect paths across non-overlapping camera blindspots using multimodal CLIP visual embeddings and spatial-temporal graph traversal.
+2. **Dynamic Composite Risk Scoring ($0–100\%$):** Real-time threat index evaluating perimeter polygon incursion, loitering duration, velocity anomalies, and abandoned baggage.
+3. **Autonomous AI Investigation Copilot:** An interactive LLM reasoning agent answering complex situational inquiries and drafting military-grade tactical incident briefings.
+4. **Certified Forensic Dossier Generation:** Compiles court-admissible PDF/HTML case files complete with suspect visual profiles, timeline tables, and tamper-evident SHA-256 cryptographic hashes.
+5. **Palantir/Anduril-Style Command Center:** High-density tactical Security Operations Center (SOC) dashboard with live multi-camera feeds, DEFCON threat barometer, and one-click tactical dispatch.
 
 ---
 
-## ⚖️ Problem Statement & Solution
+## ⚖️ Legacy Surveillance vs. SentinelAI
 
-| Existing Issue | CamTrace Solution |
+| Challenge in Traditional CCTV | SentinelAI Autonomous Capability |
 | :--- | :--- |
-| **Manual CCTV Search** | **Natural-Language Video Search** via multimodal semantic embeddings |
-| **Hours of Footage** | **Fast Evidence Retrieval** with sub-second vector search & adaptive sampling |
-| **Too Many Matches** | **Progressive Query Refinement** using multi-attribute clues and scenario constraints |
-| **Hard to Track Events** | **AI-Based Detection & Tracking** using YOLOv8, ByteTrack, and spatial-temporal grouping |
-
-### Innovation & Uniqueness
-- **Searchable Visual Database:** Ingests raw CCTV feeds (MP4, MOV, AVI) and extracts dense visual-semantic representations.
-- **Progressive Search Funnel:** Allows investigators to iteratively layer clues (color, object type, secondary attributes, zone entry) to narrow hundreds of candidates down to exact matches.
-- **Natural-Language Understanding:** Query surveillance footage in plain English (e.g., *"Find a person wearing a red shirt and backpack entering through main gate"*).
-- **Contextual Evidence Clips:** Automatically generates continuous, forensically verifiable video clips with preceding and succeeding temporal context via FFmpeg.
+| **Siloed Camera Streams:** Target is lost the moment they walk into another camera's view. | **Cross-Camera Trajectory Re-ID:** Fuses CLIP embeddings and HSV color histograms to reconstruct full multi-camera route. |
+| **Passive Post-Event Scrubbing:** Operators spend 4–16 hours manually watching footage. | **Autonomous Anomaly Discovery:** Continuous real-time detection of loitering, zone breaches, and abandoned payloads. |
+| **Alarm Fatigue & Flat Tables:** Unprioritized alert lists with high false-positive rates. | **Composite Risk Scoring ($0–100$):** Multi-factor threat calculation categorizing threats into DEFCON defense tiers. |
+| **Disputed Forensic Evidence:** Loose `.mp4` video exports vulnerable to tampering disputes. | **Certified Case Dossiers:** Automated forensic compilation with cryptographically signed SHA-256 chain of custody. |
 
 ---
 
-## 🔄 Step-by-Step Workflow & System Architecture
-
-The CamTrace intelligence pipeline converts raw surveillance streams into forensically verified video evidence in six distinct phases:
+## 🏗️ System Architecture
 
 ```
-[1. Load & Process Footage] ──► [2. Create Visual Database] ──► [3. Natural Language Search]
-                                                                          │
-[6. Contextual Evidence Clip] ◄── [5. Progressive Refinement] ◄── [4. Find & Rank Events]
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                                 SENTINELAI C4 ARCHITECTURE                             │
+└────────────────────────────────────────────────────────────────────────────────────────┘
+
+  [EDGE SENSORS]                [PERCEPTION LAYER]               [INTELLIGENCE PLATFORM]
+ ┌──────────────┐              ┌──────────────────┐             ┌────────────────────────┐
+ │ RTSP Camera  ├─────────────►│ YOLOv8n Detect   ├────────────►│ ThreatEngine           │
+ │ IP Cameras   │  FFmpeg      │ ByteTrack IDs    │ Bounding    │ (Loiter, Breach, Bag)  │
+ │ Video Files  ├─────────────►│ HSV Histograms   │ Box Crops   └───────────┬────────────┘
+ └──────────────┘              └────────┬─────────┘                         │
+                                        │                                   ▼
+                                        ▼                       ┌────────────────────────┐
+                               ┌──────────────────┐             │ RiskScoringEngine      │
+                               │ CLIP ViT-B/32    ├────────────►│ (Composite 0-100 Score)│
+                               │ 512d Embeddings  │             └───────────┬────────────┘
+                               └────────┬─────────┘                         │
+                                        │                                   ▼
+                                        ▼                       ┌────────────────────────┐
+                               ┌──────────────────┐             │ ReidEngine & RouteGraph│
+                               │ Qdrant Vector DB ├────────────►│ (Cross-Camera Path)    │
+                               │ (Cosine Metric)  │             └───────────┬────────────┘
+                               └──────────────────┘                         │
+                                                                            ▼
+  [PRESENTATION LAYER]          [AUTONOMOUS AGENTS]             ┌────────────────────────┐
+ ┌──────────────────────┐      ┌──────────────────┐             │ SQLite Metadata        │
+ │ Tactical SOC Center  │◄─────┤ AI Copilot Agent ├────────────►│ Threat Entities, Cases │
+ │ Multi-Camera HUD Wall│      │ PDF Report Gen   │             └────────────────────────┘
+ └──────────────────────┘      └──────────────────┘
 ```
 
-### 1. Load & Process CCTV Footage
-*Turn raw video into searchable visual data.*
-- Ingests uploaded recordings or live RTSP streams (`MP4`, `MOV`, `AVI`).
-- Executes adaptive frame sampling and fast sequential frame streaming.
-- Runs **YOLOv8** for real-time person, vehicle, and object detection.
-- Applies **ByteTrack** for persistent multi-object tracking and trajectory association across frames.
+---
 
-### 2. Create Visual Database
-*Extract dense visual information from each detected entity.*
-- Extracts bounding box crops for detected entities and full-scene frames.
-- Generates 512-dimensional visual embeddings using **CLIP (ViT-B/32)**.
-- Indexes vectors into **Qdrant Vector Database** alongside rich structured metadata:
-  - Dominant color features (upper body, lower body, vehicle paint)
-  - Entity category (`person`, `car`, `truck`, `backpack`, `handbag`, etc.)
-  - Camera source identifier and camera zone coordinates
-  - Absolute timestamps and continuous track IDs
+## 🚀 Key Modules & Capabilities
 
-### 3. Search Using Natural Language
-*Describe what you remember — the system searches what happened.*
-- Translates natural language descriptions into multimodal query vectors.
-- Automatically parses structured filters:
-  - **Entity Class:** Person, vehicle, bag
-  - **Color Attributes:** Red, black, white, blue, etc.
-  - **Scenario Constraints:** Restricted boundary crossings, entry/exit gates, dwell time
+### 1. Security Command Center (`/command-center`)
+High-density visual interface featuring:
+* Live DEFCON Threat Barometer with real-time risk scores.
+* Synchronized multi-camera video wall with camera status indicators.
+* Real-time Threat Telemetry feed displaying incoming anomalies with explainable factors.
+* Emergency Tactical Dispatch simulator.
 
-### 4. Find & Rank Matching Events
-*Retrieve candidate events, not just isolated frames.*
-- Performs cosine similarity search across high-dimensional vector space in Qdrant.
-- Applies multi-signal ranking combining semantic similarity, attribute match scores, and rule verification.
-- Returns candidate event clusters across multiple camera streams.
+### 2. Multi-Camera Route Reconstruction (`/routes`)
+* Input any natural-language target description or select an active track ID.
+* Automatically synthesizes cross-camera transitions with chronological timestamps, dwell durations, inferred actions, and thumbnail crops.
+* One-click export to a certified forensic case file.
 
-### 5. Refine the Search (Progressive Clue Funnel)
-*Add details iteratively to eliminate false positives.*
-- **Step 5.1:** Query `"Red shirt"` → *20 candidate events*
-- **Step 5.2:** Add clue `"+ black pants"` → *8 candidate events*
-- **Step 5.3:** Add clue `"+ backpack"` → *3 candidate events*
-- **Step 5.4:** Add constraint `"Enters through main gate"` → *1–2 high-confidence matches*
+### 3. AI Investigation Copilot (Slide-out Drawer)
+* Conversational investigation assistant trained on spatial-temporal security telemetry.
+* Clickable prompt templates: *"Summarize high-risk perimeter breaches"*, *"Identify abandoned payloads"*, *"Audit suspect route"*.
+* Outputs structured situational awareness briefings with threat level assessments and actionable security recommendations.
 
-### 6. Generate Contextual Evidence Clip
-*From matching event to verified video evidence.*
-- Performs temporal grouping of adjacent matching frames into continuous time windows.
-- Automatically invokes **FFmpeg** to extract and re-encode a verified video clip with customizable before-and-after context (e.g., ±10 seconds).
-- Provides instant HTTP Range streaming for continuous video playback, scrubbing, and forensic export.
+### 4. Forensic Incident Repository (`/cases`)
+* Digital case file archive storing certified investigation reports.
+* Full chain-of-custody tracking with SHA-256 cryptographic hashes.
+* Print-ready HTML/PDF downloads suitable for law enforcement and legal defense.
+
+### 5. Threat Analytics & Heatmaps (`/analytics`)
+* 24-hour temporal incursion distribution histograms.
+* Camera risk rankings and sensor health indicators.
+* Operational KPIs: Mean Time to Detect (MTTD), system availability, and vector index volume.
 
 ---
 
-## 🛠 Technology Stack
+## 🛠️ Quickstart Guide
 
-| Technology | Role |
-| :--- | :--- |
-| **Python 3.11** | Core backend processing engine and pipeline orchestration |
-| **FastAPI** | High-performance asynchronous REST API, Range streaming, and WebSockets |
-| **React + TypeScript** | Modern, responsive investigative workstation UI |
-| **OpenCV** | Computer vision, video stream decoding, and frame transformations |
-| **YOLOv8 (Ultralytics)** | Deep learning object detection for surveillance scenes |
-| **ByteTrack** | Real-time multi-target tracking across temporal frames |
-| **CLIP (OpenAI)** | Multimodal vision-language embeddings for zero-shot text-to-visual search |
-| **Qdrant** | Low-latency vector database for high-dimensional similarity search |
-| **FFmpeg** | Video probing, fast seeking, transcoding, and evidence clip extraction |
+### Prerequisites
+* Python 3.10+
+* Node.js 18+
+* FFmpeg installed and available on system PATH
 
----
-
-## 📊 Feasibility, Viability & Risk Mitigation
-
-### Feasibility Highlights
-- **Existing Setup:** Operates on standard RTSP and MP4 camera streams without requiring costly specialized hardware upgrades.
-- **Proven AI Stack:** Integrates state-of-the-art open-source vision models (YOLOv8, ByteTrack, CLIP).
-- **Cost-Effective:** Zero proprietary licensing fees; lightweight CPU and GPU execution options.
-- **Rapid Prototype:** Production-ready architecture verified end-to-end for competition and operational deployment.
-
-### Potential Risks & Mitigation Strategies
-
-| Potential Risk | Key Concern | Mitigation Strategy |
-| :--- | :--- | :--- |
-| **Large Video Data** | High storage & processing overhead on long surveillance recordings | **Efficient Storage:** Adaptive frame sampling, fast keyframe streaming, thumbnail downscaling, and unified vector indexing. |
-| **Real-time Performance** | Slower search latency with massive libraries | **Optimized Search Pipeline:** Batched PyTorch tensor encoding, cached neutral projections, and indexed Qdrant collections. |
-| **False Detections** | Irrelevant candidate matches from crowded scenes | **Improved Accuracy:** Progressive multi-clue refinement funnels, attribute validation, and spatial rule engines. |
-| **Privacy & Security** | Sensitive surveillance footage and unauthorized access | **Access Control & Privacy:** Encrypted local data storage, role-based API access, and credential obfuscation. |
-
----
-
-## 🌟 Impact & Benefits
-
-### Impact
-- **Faster Investigations:** Reduces evidence discovery time from days and hours to seconds.
-- **Reduced Manual Effort:** Eliminates manual, fatigue-prone scrubbing through continuous CCTV feeds.
-- **Better Incident Response:** Enables border security forces and law enforcement to respond swiftly with actionable intelligence.
-- **Improved Public Safety:** Transforms passive surveillance infrastructure into an active, intelligent security asset.
-
-### Key Benefits
-- **Natural-Language Search:** Accessible to field operators without specialized query syntax.
-- **Progressive Refinement:** Layers clues dynamically until ground truth is pinpointed.
-- **Forensic Video Clips:** Produces court-ready, contextual evidence clips rather than ambiguous stills.
-- **Zero Infrastructure Replacement:** Bridges modern AI directly with legacy CCTV systems.
-
----
-
-## 📚 Research & References
-
-1. **NIST — Face in Video Evaluation (FIVE):** Performance metrics for video surveillance evaluation.  
-   [https://www.nist.gov/programs-projects/face-video-evaluation-five](https://www.nist.gov/programs-projects/face-video-evaluation-five)
-2. **BoT-SORT — Robust Associations for Multi-Pedestrian Tracking:**  
-   [https://arxiv.org/abs/2206.14651](https://arxiv.org/abs/2206.14651)
-3. **Ultralytics YOLOv8 Documentation:**  
-   [https://docs.ultralytics.com/](https://docs.ultralytics.com/)
-4. **OpenCV Video Surveillance & Object Tracking:**  
-   [https://docs.opencv.org/doc/doxygen/html/dc/d6b/group__video__track.html](https://docs.opencv.org/doc/doxygen/html/dc/d6b/group__video__track.html)
-5. **Learning Transferable Visual Models From Natural Language Supervision (CLIP):**  
-   [https://arxiv.org/abs/2103.00020](https://arxiv.org/abs/2103.00020)
-6. **Text-to-Video Retrieval: A Survey:**  
-   [https://arxiv.org/abs/2201.08071](https://arxiv.org/abs/2201.08071)
-
----
-
-## 🚀 Quick Start Guide
-
-### 1. Prerequisites
-- Python 3.11
-- Node.js 20+
-- FFmpeg installed and available on system PATH
-
-### 2. Local Setup
-
+### 1. Clone Repository & Setup Backend
 ```bash
-# Clone the repository
-git clone https://github.com/Rahul-2006ra/CCTV.git
-cd CCTV
+# Clone repository
+git clone https://github.com/Rahul-2006ra/CCTV.git sentinel-ai
+cd sentinel-ai
+
+# Create virtual environment
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
 # Install backend dependencies
 pip install -r requirements.txt
 
-# Install frontend dependencies
-cd frontend && npm install && cd ..
+# Download neural weights (YOLOv8n & CLIP ViT-B/32)
+python scripts/download_models.py
 ```
 
-### 3. Run Application
-
-```powershell
-# Option A: Windows PowerShell launcher
-.\start.ps1
-
-# Option B: Manual Launch (Two terminals)
-# Terminal 1 - Backend:
-uvicorn backend.main:app --host 127.0.0.1 --port 8000
-
-# Terminal 2 - Frontend:
-npm run dev --prefix frontend
-```
-
-### 4. Access the Platform
-- **Investigation Station:** [http://localhost:5173/investigation](http://localhost:5173/investigation)
-- **Footage Library:** [http://localhost:5173/footage](http://localhost:5173/footage)
-- **Camera Configurations:** [http://localhost:5173/cameras](http://localhost:5173/cameras)
-- **API Documentation (Swagger):** [http://localhost:8000/docs](http://localhost:8000/docs)
-- **System Health:** [http://localhost:8000/api/system/health](http://localhost:8000/api/system/health)
-
----
-
-## 🐳 Unified Docker & Cloud Deployment
-
-CamTrace includes a multi-stage Docker build that compiles the frontend and runs the backend on a single port for zero-configuration cloud deployment:
-
+### 2. Setup Frontend
 ```bash
-# Build the unified container
-docker build -t camtrace-intelligence .
-
-# Run on port 7860
-docker run -p 7860:7860 camtrace-intelligence
+cd frontend
+npm install
+npm run build
+cd ..
 ```
 
-For 1-click cloud deployment on **Railway**, **Render**, or **Hugging Face Spaces**, refer to [`DEPLOYMENT.md`](DEPLOYMENT.md).
+### 3. Prime Demo Environment (Optional)
+```bash
+# Seed realistic 4-camera breach scenario for instant demonstration
+python scripts/generate_synthetic_threats.py
+```
+
+### 4. Launch SentinelAI
+```bash
+# Start backend server
+python -m backend.main
+```
+Navigate to `http://localhost:8000` (or `http://localhost:5173` if running Vite dev server) to access the SentinelAI Command Center.
 
 ---
 
-## 👥 Team Phoenix
+## 🎬 90-Second Demo Script for Judges
 
-- **Hackathon:** Smart India Hackathon 2026
-- **Problem Statement:** SIH26187 — *AI based Intelligent Video Analytics Platform for border Surveillance using existing CCTV infrasturcture*
-- **Theme:** Smart Automation (Software)
-- **Team ID:** S4D068-1
-- **Team Name:** Phoenix
+1. **The Tactical Command Center (0:00 - 0:25):**
+   * Open the **Command Center** page.
+   * Highlight the live 4-camera grid and the global **DEFCON Threat Barometer** actively evaluating facility telemetry.
+2. **Autonomous Incursion Escalation (0:25 - 0:45):**
+   * Show flagged **Restricted Zone Incursion** alerts with pulsing crimson **Risk Badges**.
+   * Demonstrate the **"DISPATCH TACTICAL RESPONSE"** button triggering instant lockdown.
+3. **Cross-Camera Route Reconstruction (0:45 - 1:10):**
+   * Navigate to **Route Reconstruction**.
+   * Query: *"person wearing red jacket with backpack"*.
+   * Watch SentinelAI reconstruct the full suspect trajectory:
+     `CAM-01 (Perimeter North) ──► CAM-02 (Service Alley) ──► CAM-03 (Rear Lobby)`.
+4. **AI Copilot & Forensic Dossier Export (1:10 - 1:30):**
+   * Open the **Copilot Agent** drawer and ask: *"Summarize the incident."*
+   * Copilot generates an instant military-grade tactical situation report.
+   * Click **"Export Forensic Case File"** to reveal a certified, tamper-evident PDF dossier sealed with a SHA-256 cryptographic hash.
+
+---
+
+## 📄 License & Credits
+Licensed under the [Apache 2.0 License](LICENSE). Built for Smart India Hackathon & AI competitions.
