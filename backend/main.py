@@ -13,6 +13,13 @@ from backend.vector_store.qdrant_store import VectorStore
 from backend.processing.pipeline import Pipeline
 from backend.search.search_engine import SearchEngine
 from backend.api.routes import router
+from backend.api.intelligence_routes import intelligence_router
+from backend.api.analytics_routes import analytics_router
+from backend.intelligence.threat_engine import ThreatEngine
+from backend.intelligence.risk_scoring import RiskScoringEngine
+from backend.intelligence.route_reconstruction import RouteReconstructor
+from backend.intelligence.copilot import InvestigationCopilot
+from backend.intelligence.report_generator import ReportGenerator
 from backend.live import LiveManager
 
 logging.basicConfig(level=logging.INFO)
@@ -30,6 +37,11 @@ async def lifespan(app):
     )
     app.state.search = SearchEngine(app.state.embedder, app.state.store)
     _ = app.state.search.surveillance_neutrals
+    app.state.threat_engine = ThreatEngine()
+    app.state.risk_engine = RiskScoringEngine()
+    app.state.reconstructor = RouteReconstructor(app.state.store, app.state.embedder)
+    app.state.copilot = InvestigationCopilot(app.state.search)
+    app.state.report_generator = ReportGenerator()
     app.state.live = LiveManager(app.state.pipeline)
     yield
     app.state.live.close()
@@ -37,7 +49,11 @@ async def lifespan(app):
     app.state.store.close()
 
 
-app = FastAPI(title="CCTV Intelligence", version="0.1.0", lifespan=lifespan)
+app = FastAPI(
+    title="SentinelAI: Autonomous Surveillance Intelligence Platform",
+    version="1.0.0",
+    lifespan=lifespan,
+)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -46,6 +62,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(router)
+app.include_router(intelligence_router)
+app.include_router(analytics_router)
 
 
 @app.exception_handler(RequestValidationError)
