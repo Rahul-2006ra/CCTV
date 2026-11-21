@@ -1562,3 +1562,24 @@ dd {
   padding: 6px 10px;
   font-size: 11px;
 }
+
+
+/* SentinelAI Tactical SOC Command Styles */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spin {
+  animation: spin 2s linear infinite;
+}
+
+@keyframes pulseGlow {
+  0% { box-shadow: 0 0 5px rgba(244, 63, 94, 0.4); }
+  50% { box-shadow: 0 0 18px rgba(244, 63, 94, 0.8); }
+  100% { box-shadow: 0 0 5px rgba(244, 63, 94, 0.4); }
+}
+
+.threat-pulse {
+  animation: pulseGlow 1.8s infinite ease-in-out;
+}
